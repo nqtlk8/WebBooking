@@ -79,7 +79,15 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
         db.refresh(new_user)
         
         logger.info(f"User {user.email} registered successfully")
-        return new_user
+        return {
+            "id": new_user.id,
+            "name": new_user.name,
+            "email": new_user.email,
+            "date_of_birth": new_user.date_of_birth,
+            "phone_number": new_user.phone_number,
+            "type": new_user.type,
+            "created_at": datetime.utcnow()
+        }
 
     except HTTPException:
         raise
