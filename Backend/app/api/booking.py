@@ -16,13 +16,15 @@ from schemas.booking import (
     ErrorResponse,
     BookingUpdate,
     AggregatedBookingDetail,
-    TicketTypeResponse
+    TicketTypeResponse,
+    BookingStatusResponse
 )
 from api.auth import verify_token
 
 router = APIRouter(
     tags=["bookings"]
 )
+
 
 @router.post(
     "/initiate",
@@ -196,7 +198,7 @@ async def get_booking_details(
 
 @router.post(
     "/{booking_id}/confirm",
-    response_model=BookingResponse,
+    response_model=BookingStatusResponse,
     responses={
         404: {"model": ErrorResponse},
         400: {"model": ErrorResponse},
@@ -224,42 +226,55 @@ async def confirm_booking_payment(
 
     booking.status = "paid"
     db.commit()
-    db.refresh(booking)
-
-    # Re-fetch and aggregate booking details for the response
-    aggregated_details_query = db.query(
-        BookingDetail.ticket_type_id,
-        func.count(BookingDetail.id).label('quantity'),
-        TicketType.name,
-        TicketType.price
-    ).join(TicketType).filter(BookingDetail.booking_id == booking_id)
     
-    # Group by ticket_type_id, name, and price
-    aggregated_details = aggregated_details_query.group_by(
-        BookingDetail.ticket_type_id,
-        TicketType.name,
-        TicketType.price
-    ).all()
+    return BookingStatusResponse(
+        id=booking.id,
+        status=booking.status,
+        message="Payment confirmed successfully"
+    )
 
-    # Construct the list of AggregatedBookingDetail Pydantic models
-    booking_details_list = []
-    for detail in aggregated_details:
-        booking_details_list.append(
-            AggregatedBookingDetail(
-                ticket_type=TicketTypeResponse(
-                    id=detail.ticket_type_id,
-                    name=detail.name,
-                    price=float(detail.price)
-                ),
-                quantity=detail.quantity
-            )
+@router.post(
+    "/{booking_id}/cancel",
+    response_model=BookingStatusResponse,
+    responses={
+        404: {"model": ErrorResponse},
+        400: {"model": ErrorResponse},
+        401: {"model": ErrorResponse}
+    }
+)
+async def cancel_booking(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    token_data: dict = Depends(verify_token)
+):
+    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found"
         )
 
-    # Construct and return the BookingResponse Pydantic model
-    return BookingResponse(
+    if booking.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only pending bookings can be canceled"
+        )
+
+    # Update booking status to canceled
+    booking.status = "canceled"
+    
+    # Release the seats back to available
+    booking_details = db.query(BookingDetail).filter(BookingDetail.booking_id == booking_id).all()
+    for detail in booking_details:
+        seat = db.query(Seat).filter(Seat.id == detail.seat_id).first()
+        if seat:
+            seat.is_available = True
+    
+    db.commit()
+    
+    return BookingStatusResponse(
         id=booking.id,
-        user_id=booking.user_id,
         status=booking.status,
-        time=booking.time,
-        booking_details=booking_details_list
+        message="Booking canceled successfully"
     )

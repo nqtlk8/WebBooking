@@ -168,30 +168,49 @@ async function saveSeat() {
         const id = document.getElementById('seatId').value;
         const ticketTypeId = document.getElementById('seatTicketType').value;
         const available = document.getElementById('seatStatus').value === 'true';
+        const quantity = parseInt(document.getElementById('seatQuantity').value) || 1;
 
-        const seat = {
-            ticket_type_id: parseInt(ticketTypeId),
-            is_available: available
-        };
+        if (id) {
+            // If editing existing seat
+            const seat = {
+                ticket_type_id: parseInt(ticketTypeId),
+                is_available: available
+            };
 
-        const url = id ? `${SEATS_URL}/${id}` : SEATS_URL;
-        const method = id ? 'PUT' : 'POST';
+            const url = `${SEATS_URL}/${id}`;
+            const response = await fetch(url, {
+                ...defaultFetchOptions,
+                method: 'PUT',
+                body: JSON.stringify(seat)
+            });
 
-        const response = await fetch(url, {
-            ...defaultFetchOptions,
-            method: method,
-            body: JSON.stringify(seat)
-        });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Error response:', errorData);
+                handleAuthError(response);
+                return;
+            }
+        } else {
+            // If adding new seats using bulk creation
+            const bulkSeat = {
+                ticket_type_id: parseInt(ticketTypeId),
+                is_available: available,
+                quantity: quantity
+            };
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Error response:', errorData);
-            handleAuthError(response);
-            return;
+            const response = await fetch(`${SEATS_URL}/bulk`, {
+                ...defaultFetchOptions,
+                method: 'POST',
+                body: JSON.stringify(bulkSeat)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Error response:', errorData);
+                handleAuthError(response);
+                return;
+            }
         }
-
-        const result = await response.json();
-        console.log('Success:', result);
 
         bootstrap.Modal.getInstance(document.getElementById('seatModal')).hide();
         loadTicketTypes();

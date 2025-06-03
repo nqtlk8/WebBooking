@@ -129,6 +129,45 @@ async function confirmPayment() {
     }
 }
 
+// Cancel booking
+async function cancelPayment() {
+    try {
+        const bookingId = localStorage.getItem('currentBookingId');
+        if (!bookingId) {
+            window.location.href = 'booking.html';
+            return;
+        }
+
+        // Hiển thị confirm dialog
+        if (!confirm('Are you sure you want to cancel this booking?')) {
+            return;
+        }
+
+        const response = await fetch(`${BOOKINGS_URL}/${bookingId}/cancel`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = 'login.html';
+                return;
+            }
+            throw new Error('Failed to cancel booking');
+        }
+
+        alert('Booking canceled successfully!');
+        localStorage.removeItem('currentBookingId');
+        window.location.href = 'booking.html';
+    } catch (error) {
+        console.error('Error canceling booking:', error);
+        alert('Failed to cancel booking');
+    }
+}
+
 // Initialize page
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();

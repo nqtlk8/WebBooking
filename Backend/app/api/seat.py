@@ -7,7 +7,7 @@ import logging
 from database import get_db
 from models.seat import Seat
 from models.ticket_type import TicketType
-from schemas.seat import SeatCreate, SeatUpdate, SeatResponse, SeatCountResponse, TicketTypeSeatCount
+from schemas.seat import SeatCreate, SeatUpdate, SeatResponse, SeatCountResponse, TicketTypeSeatCount, BulkSeatCreate
 from api.auth import verify_token
 
 router = APIRouter()
@@ -89,6 +89,40 @@ async def create_seat(
         return SeatResponse.from_orm(db_seat)
     except Exception as e:
         logger.error(f"Error creating seat: {str(e)}")
+        logger.error(traceback.format_exc())
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+@router.post("/bulk", response_model=List[SeatResponse])
+async def create_bulk_seats(
+    bulk_seat: BulkSeatCreate,
+    db: Session = Depends(get_db),
+    token_data: dict = Depends(verify_token)
+):
+    try:
+        # Create a list of seats
+        seats = [
+            Seat(
+                ticket_type_id=bulk_seat.ticket_type_id,
+                is_available=bulk_seat.is_available
+            )
+            for _ in range(bulk_seat.quantity)
+        ]
+        
+        # Add all seats at once
+        db.add_all(seats)
+        db.commit()
+        
+        # Refresh all seats to get their IDs
+        for seat in seats:
+            db.refresh(seat)
+            
+        return [SeatResponse.from_orm(seat) for seat in seats]
+    except Exception as e:
+        logger.error(f"Error creating bulk seats: {str(e)}")
         logger.error(traceback.format_exc())
         db.rollback()
         raise HTTPException(

@@ -57,3 +57,12 @@ class BookingInitiateRequest(BaseModel):
 class ErrorResponse(BaseModel):
     """Schema for error responses"""
     detail: str = Field(..., description="Error message")
+
+class BookingStatusResponse(BaseModel):
+    """Schema for booking status response (confirm/cancel)"""
+    id: int
+    status: str
+    message: str
+
+    class Config:
+        from_attributes = True
