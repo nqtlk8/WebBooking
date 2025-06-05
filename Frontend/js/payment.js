@@ -56,8 +56,8 @@ async function loadBookingDetails() {
         }
 
         const booking = await response.json();
-        
-        // Display booking details
+
+// Display booking details
         document.getElementById('bookingId').textContent = booking.id;
         document.getElementById('bookingStatus').textContent = booking.status;
         document.getElementById('bookingTime').textContent = new Date(booking.time).toLocaleString();
@@ -70,7 +70,7 @@ async function loadBookingDetails() {
         booking.booking_details.forEach(detail => {
             const subtotal = detail.ticket_type.price * detail.quantity;
             totalAmount += subtotal;
-            
+
             const div = document.createElement('div');
             div.className = 'mb-2';
             div.innerHTML = `

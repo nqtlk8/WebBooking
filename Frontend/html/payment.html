@@ -115,7 +115,7 @@
                 </ul>
                 <div class="d-flex align-items-center">
                     <span class="text-light me-3" id="userInfo"></span>
-                    <button class="btn btn-outline-light" onclick="logout()">Logout</button>
+                <button class="btn btn-outline-light" onclick="logout()">Logout</button>
                 </div>
             </div>
         </div>
@@ -123,10 +123,10 @@
 
     <div class="container">
         <div class="payment-card">
-            <div class="card-header">
+                <div class="card-header">
                 <h4 class="mb-0">Payment Details</h4>
-            </div>
-            <div class="card-body">
+                </div>
+                <div class="card-body">
                 <div class="info-section">
                     <h5>Booking Information</h5>
                     <div class="info-item">
@@ -148,9 +148,9 @@
                     <div id="bookingDetails"></div>
                 </div>
                 
-                <div class="total-section">
+                    <div class="total-section">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5>Total Amount:</h5>
+                            <h5>Total Amount:</h5>
                         <h5 id="totalAmount" class="mb-0"></h5>
                     </div>
                 </div>
@@ -162,10 +162,10 @@
                     <button class="btn btn-success btn-payment" onclick="generateQRCode()">
                         <i class="fas fa-qrcode me-2"></i>Confirm Payment
                     </button>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
     <!-- QR Code Modal -->
     <div class="modal fade qr-modal" id="qrCodeModal" tabindex="-1" aria-labelledby="qrCodeModalLabel" aria-hidden="true">
@@ -182,7 +182,7 @@
                     <p class="text-muted mb-4">Please scan this QR code to complete your payment</p>
                     <button class="btn btn-primary" onclick="confirmPayment()">
                         <i class="fas fa-check me-2"></i>I have completed the payment
-                    </button>
+                </button>
                 </div>
             </div>
         </div>
