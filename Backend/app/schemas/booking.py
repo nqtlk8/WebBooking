@@ -42,6 +42,31 @@ class BookingResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# Admin specific schemas
+class AdminBookingListItem(BaseModel):
+    """Schema for booking list in admin dashboard"""
+    id: int
+    user_name: str
+    total_amount: float
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class AdminBookingDetail(BaseModel):
+    """Schema for booking details in admin dashboard"""
+    id: int
+    user_name: str
+    user_email: str
+    total_amount: float
+    status: str
+    created_at: datetime
+    tickets: List[dict]  # List of ticket details
+
+    class Config:
+        from_attributes = True
+
 # Request schemas
 class SeatRequest(BaseModel):
     """Schema for individual seat request"""

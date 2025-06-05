@@ -10,6 +10,7 @@ from models.booking import Booking
 from models.bookingdetail import BookingDetail
 from models.seat import Seat
 from models.ticket_type import TicketType
+from models.user import User
 from schemas.booking import (
     BookingInitiateRequest,
     BookingResponse,
@@ -17,15 +18,16 @@ from schemas.booking import (
     BookingUpdate,
     AggregatedBookingDetail,
     TicketTypeResponse,
-    BookingStatusResponse
+    BookingStatusResponse,
+    AdminBookingListItem,
+    AdminBookingDetail
 )
 from api.auth import verify_token
 
 router = APIRouter(
-    tags=["bookings"]
 )
 
-
+# User endpoints
 @router.post(
     "/initiate",
     response_model=BookingResponse,
@@ -278,3 +280,198 @@ async def cancel_booking(
         status=booking.status,
         message="Booking canceled successfully"
     )
+
+# Admin endpoints
+@router.get(
+    "/admin/list",
+    response_model=List[AdminBookingListItem],
+    responses={
+        401: {"model": ErrorResponse},
+        403: {"model": ErrorResponse},
+        500: {"model": ErrorResponse}
+    }
+)
+async def get_admin_booking_list(
+    db: Session = Depends(get_db),
+    token_data: dict = Depends(verify_token)
+):
+    """Get list of all bookings for admin dashboard"""
+    try:
+        # Verify admin role
+        if token_data.get("type") != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admin can access this endpoint"
+            )
+
+        # Query bookings with user information and calculate total amount
+        bookings = db.query(
+            Booking,
+            User.name.label('user_name'),
+            func.sum(TicketType.price).label('total_amount')
+        ).join(
+            User, Booking.user_id == User.id
+        ).join(
+            BookingDetail, Booking.id == BookingDetail.booking_id
+        ).join(
+            TicketType, BookingDetail.ticket_type_id == TicketType.id
+        ).group_by(
+            Booking.id, User.name
+        ).all()
+
+        return [
+            AdminBookingListItem(
+                id=booking.Booking.id,
+                user_name=booking.user_name,
+                total_amount=float(booking.total_amount),
+                status=booking.Booking.status,
+                created_at=booking.Booking.time
+            )
+            for booking in bookings
+        ]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get(
+    "/admin/{booking_id}",
+    response_model=AdminBookingDetail,
+    responses={
+        401: {"model": ErrorResponse},
+        403: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        500: {"model": ErrorResponse}
+    }
+)
+async def get_admin_booking_detail(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    token_data: dict = Depends(verify_token)
+):
+    """Get detailed information of a booking for admin dashboard"""
+    try:
+        # Verify admin role
+        if token_data.get("type") != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admin can access this endpoint"
+            )
+
+        # Query booking with all related information
+        booking = db.query(
+            Booking,
+            User.name.label('user_name'),
+            User.email.label('user_email'),
+            func.sum(TicketType.price).label('total_amount')
+        ).join(
+            User, Booking.user_id == User.id
+        ).join(
+            BookingDetail, Booking.id == BookingDetail.booking_id
+        ).join(
+            TicketType, BookingDetail.ticket_type_id == TicketType.id
+        ).filter(
+            Booking.id == booking_id
+        ).group_by(
+            Booking.id, User.name, User.email
+        ).first()
+
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Get ticket details
+        ticket_details = db.query(
+            TicketType.name,
+            TicketType.price,
+            func.count(BookingDetail.id).label('quantity')
+        ).join(
+            BookingDetail, TicketType.id == BookingDetail.ticket_type_id
+        ).filter(
+            BookingDetail.booking_id == booking_id
+        ).group_by(
+            TicketType.name, TicketType.price
+        ).all()
+
+        return AdminBookingDetail(
+            id=booking.Booking.id,
+            user_name=booking.user_name,
+            user_email=booking.user_email,
+            total_amount=float(booking.total_amount),
+            status=booking.Booking.status,
+            created_at=booking.Booking.time,
+            tickets=[
+                {
+                    "ticket_type": detail.name,
+                    "quantity": detail.quantity,
+                    "price": float(detail.price)
+                }
+                for detail in ticket_details
+            ]
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.put(
+    "/admin/{booking_id}/status",
+    response_model=BookingStatusResponse,
+    responses={
+        401: {"model": ErrorResponse},
+        403: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        500: {"model": ErrorResponse}
+    }
+)
+async def update_booking_status(
+    booking_id: int,
+    status_update: BookingUpdate,
+    db: Session = Depends(get_db),
+    token_data: dict = Depends(verify_token)
+):
+    """Update booking status (admin only)"""
+    try:
+        # Verify admin role
+        if token_data.get("type") != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admin can access this endpoint"
+            )
+
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+
+        # Update status
+        booking.status = status_update.status
+        db.commit()
+        db.refresh(booking)
+
+        return BookingStatusResponse(
+            id=booking.id,
+            status=booking.status,
+            message="Booking status updated successfully"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )

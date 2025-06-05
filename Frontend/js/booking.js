@@ -75,15 +75,19 @@ function createTicketCard(ticketType) {
     const col = document.createElement('div');
     col.className = 'col-md-6 mb-4';
     
+    // Set default available quantity if not provided
+    const availableQuantity = ticketType.available_quantity || 0;
+    
     col.innerHTML = `
         <div class="card ticket-card h-100">
             <div class="card-body">
                 <h5 class="card-title">${ticketType.name}</h5>
                 <p class="card-text">Price: $${ticketType.price.toFixed(2)}</p>
+                <p class="card-text text-muted">Available: ${availableQuantity}</p>
                 <div class="d-flex align-items-center">
                     <div class="input-group quantity-control">
                         <button class="btn btn-outline-secondary" type="button" onclick="updateQuantity(${ticketType.id}, -1)">-</button>
-                        <input type="number" class="form-control text-center" id="quantity-${ticketType.id}" value="0" min="0" readonly>
+                        <input type="number" class="form-control text-center" id="quantity-${ticketType.id}" value="0" min="0" max="${availableQuantity}" readonly>
                         <button class="btn btn-outline-secondary" type="button" onclick="updateQuantity(${ticketType.id}, 1)">+</button>
                     </div>
                 </div>
@@ -98,7 +102,8 @@ function createTicketCard(ticketType) {
 function updateQuantity(ticketTypeId, change) {
     const input = document.getElementById(`quantity-${ticketTypeId}`);
     const currentValue = parseInt(input.value) || 0;
-    const newValue = Math.max(0, currentValue + change);
+    const maxValue = parseInt(input.max) || 0;
+    const newValue = Math.min(maxValue, Math.max(0, currentValue + change));
     
     input.value = newValue;
     

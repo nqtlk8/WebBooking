@@ -1,14 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Booking System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <style>
+        body {
+            background-color: #ffffff;
+            color: #000000;
+        }
+        .event-info-section {
+            background-color: #1f1f1f;
+            color: #ffffff;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        .event-info-section h4, 
+        .event-info-section p {
+            color: #ffffff;
+        }
+        .event-image {
+            max-width: 66.67%;
+            height: 130%;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+        }
         .ticket-card {
             transition: transform 0.2s;
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #dee2e6;
         }
         .ticket-card:hover {
             transform: translateY(-5px);
@@ -21,12 +44,20 @@
             height: 200px;
             margin: 0 auto;
         }
+        .card {
+            background-color: #ffffff;
+            color: #000000;
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            color: #000000;
+        }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="#">Booking System</a>
+            <a class="navbar-brand fw-bold" href="#">SỰ KIỆN</a>
             <div class="d-flex">
                 <span class="navbar-text me-3" id="userInfo"></span>
                 <button class="btn btn-outline-light" onclick="logout()">Logout</button>
@@ -34,7 +65,24 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <!-- THÔNG TIN SỰ KIỆN -->
+    <div class="event-info-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h4 class="fw-bold">[CONCERT] ANH TRAI VƯỢT NGÀN CHÔNG GAI DAY3, DAY4</h4>
+                    <p><i class="fa fa-calendar-alt me-2 text-success"></i> 19:00 - 23:00, 23 Tháng 03, 2025</p>
+                    <p><i class="fa fa-map-marker-alt me-2 text-success"></i> THE GLOBAL CITY, Đỗ Xuân Hợp, TP. Thủ Đức, Phường An Phú, Quận 2, TP HCM</p>
+                </div>
+                <div class="col-md-6 text-center">
+                    <img src="../assets/images/event-poster.jpg" alt="Poster Concert" class="event-image">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TICKET SELECTION SECTION -->
+    <div class="container">
         <div class="row">
             <div class="col-md-8">
                 <h2>Available Tickets</h2>

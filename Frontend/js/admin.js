@@ -2,6 +2,7 @@
 const API_BASE_URL = 'http://localhost:8000';
 const TICKET_TYPES_URL = `${API_BASE_URL}/ticket-types`;
 const SEATS_URL = `${API_BASE_URL}/seats`;
+const BOOKINGS_URL = `${API_BASE_URL}/bookings`;
 
 // Kiểm tra xác thực
 async function checkAuth() {
@@ -274,8 +275,164 @@ async function deleteTicketType(id) {
     }
 }
 
-// Khởi tạo khi trang được load
-document.addEventListener('DOMContentLoaded', async function() {
-    if (!await checkAuth()) return;
+// Check authentication on page load
+document.addEventListener('DOMContentLoaded', () => {
+    checkAuth();
     loadTicketTypes();
+    loadBookings();
 });
+
+// Load bookings
+async function loadBookings() {
+    try {
+        if (!await checkAuth()) return;
+
+        const response = await fetch(`${BOOKINGS_URL}/admin/list`, {
+            ...defaultFetchOptions
+        });
+
+        if (!response.ok) {
+            handleAuthError(response);
+            return;
+        }
+
+        const bookings = await response.json();
+        const tableBody = document.getElementById('bookingsTableBody');
+        tableBody.innerHTML = '';
+
+        bookings.forEach(booking => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${booking.id}</td>
+                <td>${booking.user_name}</td>
+                <td>$${booking.total_amount.toFixed(2)}</td>
+                <td>
+                    <span class="status-badge status-${booking.status.toLowerCase()}">
+                        ${booking.status}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-info me-2" onclick="viewBookingDetails(${booking.id})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    ${booking.status === 'PENDING' ? `
+                        <button class="btn btn-sm btn-success me-2" onclick="updateBookingStatus(${booking.id}, 'CONFIRMED')">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="updateBookingStatus(${booking.id}, 'CANCELLED')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    ` : ''}
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    } catch (error) {
+        handleAuthError(error);
+    }
+}
+
+// Update booking status
+async function updateBookingStatus(bookingId, newStatus) {
+    try {
+        if (!await checkAuth()) return;
+
+        const response = await fetch(`${BOOKINGS_URL}/admin/${bookingId}/status`, {
+            ...defaultFetchOptions,
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        if (!response.ok) {
+            handleAuthError(response);
+            return;
+        }
+
+        loadBookings(); // Reload the bookings list
+    } catch (error) {
+        handleAuthError(error);
+    }
+}
+
+// View booking details
+async function viewBookingDetails(bookingId) {
+    try {
+        if (!await checkAuth()) return;
+
+        const response = await fetch(`${BOOKINGS_URL}/admin/${bookingId}`, {
+            ...defaultFetchOptions
+        });
+
+        if (!response.ok) {
+            handleAuthError(response);
+            return;
+        }
+
+        const booking = await response.json();
+        
+        // Create modal content
+        const modalContent = `
+            <div class="modal-header">
+                <h5 class="modal-title">Booking Details #${booking.id}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>User Name:</strong> ${booking.user_name}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>User Email:</strong> ${booking.user_email}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Status:</strong>
+                        <span class="status-badge status-${booking.status.toLowerCase()}">
+                            ${booking.status}
+                        </span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Created At:</strong> ${new Date(booking.created_at).toLocaleString()}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <strong>Total Amount:</strong> $${booking.total_amount.toFixed(2)}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        `;
+
+        // Create and show modal
+        const modalDiv = document.createElement('div');
+        modalDiv.className = 'modal fade';
+        modalDiv.setAttribute('tabindex', '-1');
+        modalDiv.setAttribute('role', 'dialog');
+        modalDiv.setAttribute('aria-labelledby', 'bookingModalLabel');
+        modalDiv.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    ${modalContent}
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalDiv);
+
+        const modal = new bootstrap.Modal(modalDiv, {
+            backdrop: 'static',
+            keyboard: false
+        });
+        modal.show();
+
+        // Remove modal from DOM after it's hidden
+        modalDiv.addEventListener('hidden.bs.modal', () => {
+            document.body.removeChild(modalDiv);
+        });
+    } catch (error) {
+        handleAuthError(error);
+    }
+}

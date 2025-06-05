@@ -24,7 +24,8 @@ async def get_ticket_types(
             {
                 "id": ticket_type.id,
                 "name": ticket_type.name,
-                "price": ticket_type.price
+                "price": ticket_type.price,
+                "available_quantity": sum(1 for seat in ticket_type.seats if seat.is_available)
             }
             for ticket_type in ticket_types
         ]

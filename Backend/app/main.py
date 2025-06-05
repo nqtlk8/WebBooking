@@ -77,7 +77,12 @@ app.include_router(
     booking.router,
     prefix="/bookings",
     tags=["Bookings"],
-    responses={404: {"description": "Not found"}}
+    responses={
+        404: {"description": "Not found"},
+        401: {"description": "Unauthorized"},
+        403: {"description": "Forbidden"},
+        500: {"description": "Internal server error"}
+    }
 )
 
 app.include_router(

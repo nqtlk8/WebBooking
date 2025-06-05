@@ -2,7 +2,7 @@
 const API_BASE_URL = 'http://localhost:8000';
 const BOOKINGS_URL = `${API_BASE_URL}/bookings`;
 
-// Check authentication
+// Kiểm tra xác thực
 function checkAuth() {
     const token = localStorage.getItem('access_token');
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
@@ -16,6 +16,12 @@ function checkAuth() {
     
     document.getElementById('userInfo').textContent = `Welcome, ${userInfo.name}`;
 }
+
+// Check authentication on page load
+document.addEventListener('DOMContentLoaded', () => {
+    checkAuth();
+    loadBookingDetails();
+});
 
 // Logout function
 function logout() {
@@ -35,8 +41,9 @@ async function loadBookingDetails() {
 
         const response = await fetch(`${BOOKINGS_URL}/${bookingId}`, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                'Accept': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
             }
         });
 
@@ -49,50 +56,67 @@ async function loadBookingDetails() {
         }
 
         const booking = await response.json();
-        displayBookingDetails(booking);
+        
+        // Display booking details
+        document.getElementById('bookingId').textContent = booking.id;
+        document.getElementById('bookingStatus').textContent = booking.status;
+        document.getElementById('bookingTime').textContent = new Date(booking.time).toLocaleString();
+        
+        // Calculate and display total amount
+        let totalAmount = 0;
+        const detailsContainer = document.getElementById('bookingDetails');
+        detailsContainer.innerHTML = '';
+        
+        booking.booking_details.forEach(detail => {
+            const subtotal = detail.ticket_type.price * detail.quantity;
+            totalAmount += subtotal;
+            
+            const div = document.createElement('div');
+            div.className = 'mb-2';
+            div.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <span>${detail.ticket_type.name} x ${detail.quantity}</span>
+                    <span>$${subtotal.toFixed(2)}</span>
+                </div>
+            `;
+            detailsContainer.appendChild(div);
+        });
+        
+        document.getElementById('totalAmount').textContent = `$${totalAmount.toFixed(2)}`;
+        
     } catch (error) {
         console.error('Error loading booking details:', error);
         alert('Failed to load booking details');
     }
 }
 
-// Display booking details
-function displayBookingDetails(booking) {
-    const container = document.getElementById('bookingDetails');
-    let total = 0;
-
-    container.innerHTML = '';
-
-    // Iterate over booking.booking_details which contains aggregated ticket info
-    if (booking.booking_details && Array.isArray(booking.booking_details)) {
-        booking.booking_details.forEach(detail => {
-            // Each detail is an AggregatedBookingDetail with ticket_type and quantity
-            const ticketType = detail.ticket_type;
-            const quantity = detail.quantity;
-            const subtotal = ticketType.price * quantity;
-            total += subtotal;
-
-            const div = document.createElement('div');
-            div.className = 'ticket-item';
-            div.innerHTML = `
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6>${ticketType.name}</h6>
-                        <small class="text-muted">Quantity: ${quantity}</small>
-                    </div>
-                    <div>
-                        <h6>$${subtotal.toFixed(2)}</h6>
-                        <small class="text-muted">$${ticketType.price.toFixed(2)} each</small>
-                    </div>
-                </div>
-            `;
-            container.appendChild(div);
-        });
-    } else {
-        container.innerHTML = '<p class="text-muted">No booking details found.</p>';
+// Generate QR code
+function generateQRCode() {
+    const bookingId = localStorage.getItem('currentBookingId');
+    if (!bookingId) {
+        alert('No booking found');
+        return;
     }
 
-    document.getElementById('totalAmount').textContent = `$${total.toFixed(2)}`;
+    // Create QR code content (booking ID + timestamp for uniqueness)
+    const qrContent = `booking_${bookingId}_${Date.now()}`;
+    
+    // Generate QR code
+    const qrCodeDiv = document.getElementById('qrCode');
+    qrCodeDiv.innerHTML = ''; // Clear previous QR code
+    
+    new QRCode(qrCodeDiv, {
+        text: qrContent,
+        width: 200,
+        height: 200,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+    });
+
+    // Show QR code modal
+    const qrModal = new bootstrap.Modal(document.getElementById('qrCodeModal'));
+    qrModal.show();
 }
 
 // Confirm payment
@@ -100,15 +124,15 @@ async function confirmPayment() {
     try {
         const bookingId = localStorage.getItem('currentBookingId');
         if (!bookingId) {
-            window.location.href = 'booking.html';
-            return;
+            throw new Error('No booking found');
         }
 
         const response = await fetch(`${BOOKINGS_URL}/${bookingId}/confirm`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                'Accept': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
             }
         });
 
@@ -120,25 +144,29 @@ async function confirmPayment() {
             throw new Error('Failed to confirm payment');
         }
 
+        // Close QR code modal
+        bootstrap.Modal.getInstance(document.getElementById('qrCodeModal')).hide();
+
+        // Show success message
         alert('Payment confirmed successfully!');
-        localStorage.removeItem('currentBookingId');
+        
+        // Redirect to booking page
         window.location.href = 'booking.html';
+
     } catch (error) {
         console.error('Error confirming payment:', error);
-        alert('Failed to confirm payment');
+        alert(error.message || 'Failed to confirm payment');
     }
 }
 
 // Cancel booking
-async function cancelPayment() {
+async function cancelBooking() {
     try {
         const bookingId = localStorage.getItem('currentBookingId');
         if (!bookingId) {
-            window.location.href = 'booking.html';
-            return;
+            throw new Error('No booking found');
         }
 
-        // Hiển thị confirm dialog
         if (!confirm('Are you sure you want to cancel this booking?')) {
             return;
         }
@@ -146,8 +174,9 @@ async function cancelPayment() {
         const response = await fetch(`${BOOKINGS_URL}/${bookingId}/cancel`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                'Accept': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
             }
         });
 
@@ -159,17 +188,11 @@ async function cancelPayment() {
             throw new Error('Failed to cancel booking');
         }
 
-        alert('Booking canceled successfully!');
-        localStorage.removeItem('currentBookingId');
+        alert('Booking cancelled successfully');
         window.location.href = 'booking.html';
-    } catch (error) {
-        console.error('Error canceling booking:', error);
-        alert('Failed to cancel booking');
-    }
-}
 
-// Initialize page
-document.addEventListener('DOMContentLoaded', () => {
-    checkAuth();
-    loadBookingDetails();
-}); 
+    } catch (error) {
+        console.error('Error cancelling booking:', error);
+        alert(error.message || 'Failed to cancel booking');
+    }
+} 
