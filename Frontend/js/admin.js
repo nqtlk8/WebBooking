@@ -131,12 +131,31 @@ async function saveTicketType() {
         if (!await checkAuth()) return;
 
         const id = document.getElementById('ticketTypeId').value;
-        const name = document.getElementById('ticketTypeName').value;
-        const price = document.getElementById('ticketTypePrice').value;
+        const name = document.getElementById('ticketTypeName').value.trim();
+        const price = parseFloat(document.getElementById('ticketTypePrice').value);
+
+        // Validate input
+        if (!name) {
+            alert('Please enter a ticket type name');
+            return;
+        }
+
+        if (name.length > 100) {
+            alert('Ticket type name must be less than 100 characters');
+            return;
+        }
+
+        if (isNaN(price) || price <= 0) {
+            alert('Please enter a valid price greater than 0');
+            return;
+        }
+
+        // Round price to 2 decimal places
+        const roundedPrice = Math.round(price * 100) / 100;
 
         const ticketType = {
             name: name,
-            price: parseFloat(price)
+            price: roundedPrice
         };
 
         const url = id ? `${TICKET_TYPES_URL}/${id}` : TICKET_TYPES_URL;
@@ -149,15 +168,37 @@ async function saveTicketType() {
         });
 
         if (!response.ok) {
-            handleAuthError(response);
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.detail || 'Failed to save ticket type';
+            alert(errorMessage);
             return;
         }
 
-        bootstrap.Modal.getInstance(document.getElementById('ticketTypeModal')).hide();
-        loadTicketTypes();
+        const savedTicketType = await response.json();
+        
+        // Show success message
+        alert(id ? 'Ticket type updated successfully' : 'Ticket type created successfully');
+        
+        // Get the modal element
+        const modalElement = document.getElementById('ticketTypeModal');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        
+        // Remove focus from any focused element inside the modal
+        if (document.activeElement && modalElement.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+        
+        // Hide the modal
+        modal.hide();
+        
+        // Reset form after modal is hidden
         document.getElementById('ticketTypeForm').reset();
+        
+        // Reload ticket types
+        await loadTicketTypes();
     } catch (error) {
-        handleAuthError(error);
+        console.error('Error saving ticket type:', error);
+        alert('An error occurred while saving the ticket type');
     }
 }
 
@@ -233,20 +274,33 @@ async function editTicketType(id) {
         });
 
         if (!response.ok) {
-            handleAuthError(response);
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.detail || 'Failed to load ticket type';
+            alert(errorMessage);
             return;
         }
 
         const ticketType = await response.json();
 
+        // Fill the form with ticket type data
         document.getElementById('ticketTypeId').value = ticketType.id;
         document.getElementById('ticketTypeName').value = ticketType.name;
         document.getElementById('ticketTypePrice').value = ticketType.price;
 
-        const modal = new bootstrap.Modal(document.getElementById('ticketTypeModal'));
+        // Show the modal
+        const modalElement = document.getElementById('ticketTypeModal');
+        const modal = new bootstrap.Modal(modalElement);
+        
+        // Add event listener for when modal is shown
+        modalElement.addEventListener('shown.bs.modal', function () {
+            // Focus the first input when modal is shown
+            document.getElementById('ticketTypeName').focus();
+        });
+        
         modal.show();
     } catch (error) {
-        handleAuthError(error);
+        console.error('Error loading ticket type:', error);
+        alert('An error occurred while loading the ticket type');
     }
 }
 
@@ -255,7 +309,8 @@ async function deleteTicketType(id) {
     try {
         if (!await checkAuth()) return;
 
-        if (!confirm('Are you sure you want to delete this ticket type?')) {
+        // Confirm deletion
+        if (!confirm('Are you sure you want to delete this ticket type? This action cannot be undone.')) {
             return;
         }
 
@@ -265,13 +320,18 @@ async function deleteTicketType(id) {
         });
 
         if (!response.ok) {
-            handleAuthError(response);
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.detail || 'Failed to delete ticket type';
+            alert(errorMessage);
             return;
         }
 
-        loadTicketTypes();
+        // Reload ticket types after successful deletion
+        await loadTicketTypes();
+        alert('Ticket type deleted successfully');
     } catch (error) {
-        handleAuthError(error);
+        console.error('Error deleting ticket type:', error);
+        alert('An error occurred while deleting the ticket type');
     }
 }
 
@@ -436,3 +496,23 @@ async function viewBookingDetails(bookingId) {
         handleAuthError(error);
     }
 }
+
+// Add event listeners when document is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the modal element
+    const modalElement = document.getElementById('ticketTypeModal');
+    
+    // Add event listener for when modal is hidden
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        // Remove focus from any focused element inside the modal
+        if (document.activeElement && modalElement.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+    });
+    
+    // Add event listener for when modal is shown
+    modalElement.addEventListener('shown.bs.modal', function () {
+        // Focus the first input when modal is shown
+        document.getElementById('ticketTypeName').focus();
+    });
+});
