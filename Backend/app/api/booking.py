@@ -69,7 +69,7 @@ async def initiate_booking(
             available_seats = db.query(Seat).filter(
                 Seat.ticket_type_id == seat_request.ticket_type_id,
                 Seat.is_available == True
-            ).order_by(Seat.id).limit(seat_request.quantity).all()
+            ).with_for_update().order_by(Seat.id).limit(seat_request.quantity).all()
 
             if len(available_seats) < seat_request.quantity:
                 db.rollback()

@@ -14,7 +14,11 @@ SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
 logger.info(f"Database URL: {SQLALCHEMY_DATABASE_URL}")
 
 # Tạo engine
-engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    isolation_level="SERIALIZABLE",
+    echo=True
+)
 
 # Tạo session local
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
