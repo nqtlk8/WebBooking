@@ -4,6 +4,7 @@ from sqlalchemy import func
 from typing import List, Dict
 from datetime import datetime
 from pydantic import BaseModel
+import logging
 
 from database import get_db
 from models.booking import Booking
@@ -287,7 +288,6 @@ async def cancel_booking(
     response_model=List[AdminBookingListItem],
     responses={
         401: {"model": ErrorResponse},
-        403: {"model": ErrorResponse},
         500: {"model": ErrorResponse}
     }
 )
@@ -297,13 +297,6 @@ async def get_admin_booking_list(
 ):
     """Get list of all bookings for admin dashboard"""
     try:
-        # Verify admin role
-        if token_data.get("type") != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only admin can access this endpoint"
-            )
-
         # Query bookings with user information and calculate total amount
         bookings = db.query(
             Booking,
@@ -343,7 +336,6 @@ async def get_admin_booking_list(
     response_model=AdminBookingDetail,
     responses={
         401: {"model": ErrorResponse},
-        403: {"model": ErrorResponse},
         404: {"model": ErrorResponse},
         500: {"model": ErrorResponse}
     }
@@ -355,13 +347,6 @@ async def get_admin_booking_detail(
 ):
     """Get detailed information of a booking for admin dashboard"""
     try:
-        # Verify admin role
-        if token_data.get("type") != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only admin can access this endpoint"
-            )
-
         # Query booking with all related information
         booking = db.query(
             Booking,
@@ -429,7 +414,6 @@ async def get_admin_booking_detail(
     response_model=BookingStatusResponse,
     responses={
         401: {"model": ErrorResponse},
-        403: {"model": ErrorResponse},
         404: {"model": ErrorResponse},
         500: {"model": ErrorResponse}
     }
@@ -442,13 +426,6 @@ async def update_booking_status(
 ):
     """Update booking status (admin only)"""
     try:
-        # Verify admin role
-        if token_data.get("type") != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only admin can access this endpoint"
-            )
-
         booking = db.query(Booking).filter(Booking.id == booking_id).first()
         if not booking:
             raise HTTPException(

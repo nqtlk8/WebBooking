@@ -5,28 +5,53 @@ const BOOKINGS_URL = `${API_BASE_URL}/bookings`;
 const SEATS_URL = `${API_BASE_URL}/seats`;
 
 // Kiểm tra xác thực
-function checkAuth() {
-    const token = localStorage.getItem('access_token');
-    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-    
-    if (!token || !userInfo || userInfo.type !== 'user') {
+async function checkAuth() {
+    try {
+        const token = localStorage.getItem('access_token');
+        const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+        
+        if (!token || !userInfo || userInfo.type !== 'user') {
+            throw new Error('Not authenticated');
+        }
+
+        // Verify token with backend
+        const response = await fetch(`${API_BASE_URL}/auth/verify`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Token invalid');
+        }
+
+        document.getElementById('userInfo').textContent = `Welcome, ${userInfo.name}`;
+        return true;
+    } catch (error) {
+        console.error('Auth check failed:', error);
         localStorage.removeItem('access_token');
         localStorage.removeItem('userInfo');
         window.location.href = 'login.html';
-        return;
+        return false;
     }
-    
-    document.getElementById('userInfo').textContent = `Welcome, ${userInfo.name}`;
 }
 
 // State management
 let selectedTickets = new Map(); // Map of ticket type ID to quantity
 let currentBooking = null;
 
-// Check authentication on page load
-document.addEventListener('DOMContentLoaded', () => {
-    checkAuth();
-    loadTicketTypes();
+// Add event listener for page load
+document.addEventListener('DOMContentLoaded', async () => {
+    await checkAuth();
+    await loadTicketTypes();
+});
+
+// Add event listener for page visibility change
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+        await checkAuth();
+    }
 });
 
 // Logout function

@@ -9,12 +9,22 @@ async function checkAuth() {
     const token = localStorage.getItem('access_token');
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
     
+    console.log('Checking auth...');
+    console.log('Token from localStorage:', token);
+    console.log('UserInfo from localStorage:', userInfo);
+    
     if (!token || !userInfo || userInfo.type !== 'admin') {
+        console.log('Auth failed:');
+        if (!token) console.log('- No token found');
+        if (!userInfo) console.log('- No userInfo found');
+        if (userInfo && userInfo.type !== 'admin') console.log('- User is not admin');
+        
         localStorage.removeItem('access_token');
         localStorage.removeItem('userInfo');
         window.location.href = '../html/adminlogin.html';
         return false;
     }
+    console.log('Auth successful - User is admin');
     return true;
 }
 
@@ -31,8 +41,33 @@ console.log('Admin JS loaded');
 
 // Xử lý lỗi xác thực
 function handleAuthError(error) {
-    console.error('Authentication error:', error);
-    if (error.message === 'Unauthorized' || error.status === 401) {
+    console.error('Authentication error details:', {
+        status: error.status,
+        statusText: error.statusText,
+        url: error.url,
+        type: error.type
+    });
+
+    // Log headers if available
+    if (error.headers) {
+        const headers = {};
+        error.headers.forEach((value, key) => {
+            headers[key] = value;
+        });
+        console.log('Response headers:', headers);
+    }
+
+    // Try to get error message from response
+    if (error.json) {
+        error.json().then(data => {
+            console.log('Error response data:', data);
+        }).catch(e => {
+            console.log('Could not parse error response:', e);
+        });
+    }
+
+    if (error.status === 401 || error.status === 403) {
+        console.log('Token or permissions invalid, redirecting to login...');
         localStorage.removeItem('access_token');
         localStorage.removeItem('userInfo');
         window.location.href = '../html/adminlogin.html';
@@ -174,7 +209,7 @@ async function saveTicketType() {
             return;
         }
 
-        const savedTicketType = await response.json();
+        await response.json();
         
         // Show success message
         alert(id ? 'Ticket type updated successfully' : 'Ticket type created successfully');
@@ -340,42 +375,92 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
     loadTicketTypes();
     loadBookings();
+
+    // Add event listener for ticket type modal
+    const ticketTypeModal = document.getElementById('ticketTypeModal');
+    ticketTypeModal.addEventListener('show.bs.modal', function (event) {
+        // If the modal is triggered by the Add button (not edit)
+        if (!event.relatedTarget || !event.relatedTarget.hasAttribute('onclick')) {
+            // Reset the form
+            document.getElementById('ticketTypeForm').reset();
+            // Clear the ID field
+            document.getElementById('ticketTypeId').value = '';
+        }
+    });
 });
 
 // Load bookings
 async function loadBookings() {
     try {
-        if (!await checkAuth()) return;
+        console.log('Starting loadBookings...');
+        if (!await checkAuth()) {
+            console.log('Auth check failed');
+            return;
+        }
+        console.log('Auth check passed');
 
-        const response = await fetch(`${BOOKINGS_URL}/admin/list`, {
-            ...defaultFetchOptions
+        const url = `${BOOKINGS_URL}/admin/list`;
+        console.log('API URL:', url);
+
+        // Use defaultFetchOptions like other API calls
+        const response = await fetch(url, {
+            ...defaultFetchOptions,
+            method: 'GET'
         });
 
+        console.log('Response status:', response.status);
+        console.log('Response status text:', response.statusText);
+        
+        // Log response headers
+        const responseHeaders = {};
+        response.headers.forEach((value, key) => {
+            responseHeaders[key] = value;
+        });
+        console.log('Response headers:', responseHeaders);
+
         if (!response.ok) {
+            console.log('Response not OK:', response.status);
+            const errorData = await response.json().catch(() => ({}));
+            console.log('Error data:', errorData);
             handleAuthError(response);
             return;
         }
 
         const bookings = await response.json();
+        console.log('Bookings data:', bookings);
+        if (bookings.length > 0) {
+            console.log('First booking keys:', Object.keys(bookings[0]));
+            console.log('First booking:', bookings[0]);
+        }
+
         const tableBody = document.getElementById('bookingsTableBody');
+        if (!tableBody) {
+            console.error('Element with id bookingsTableBody not found');
+            return;
+        }
         tableBody.innerHTML = '';
 
         bookings.forEach(booking => {
+            console.log('Booking:', booking);
+            console.log('Status:', booking.Status);  // Thử với chữ S hoa
+            console.log('status:', booking.status);  // Thử với chữ s thường
+            console.log('All keys:', Object.keys(booking));
+            
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${booking.id}</td>
                 <td>${booking.user_name}</td>
                 <td>$${booking.total_amount.toFixed(2)}</td>
                 <td>
-                    <span class="status-badge status-${booking.status.toLowerCase()}">
-                        ${booking.status}
+                    <span class="status-badge status-${booking.Status ? booking.Status.toLowerCase() : booking.status.toLowerCase()}">
+                        ${booking.Status || booking.status}
                     </span>
                 </td>
                 <td>
                     <button class="btn btn-sm btn-info me-2" onclick="viewBookingDetails(${booking.id})">
                         <i class="fas fa-eye"></i>
                     </button>
-                    ${booking.status === 'PENDING' ? `
+                    ${(booking.Status || booking.status).toLowerCase() === 'pending' ? `
                         <button class="btn btn-sm btn-success me-2" onclick="updateBookingStatus(${booking.id}, 'CONFIRMED')">
                             <i class="fas fa-check"></i>
                         </button>
@@ -388,6 +473,7 @@ async function loadBookings() {
             tableBody.appendChild(row);
         });
     } catch (error) {
+        console.error('Error in loadBookings:', error);
         handleAuthError(error);
     }
 }
@@ -486,12 +572,21 @@ async function viewBookingDetails(bookingId) {
             backdrop: 'static',
             keyboard: false
         });
-        modal.show();
 
-        // Remove modal from DOM after it's hidden
+        // Store the element that had focus before opening the modal
+        const previousActiveElement = document.activeElement;
+
+        // Handle modal hidden event
         modalDiv.addEventListener('hidden.bs.modal', () => {
+            // Remove modal from DOM
             document.body.removeChild(modalDiv);
+            // Return focus to the previous element
+            if (previousActiveElement) {
+                previousActiveElement.focus();
+            }
         });
+
+        modal.show();
     } catch (error) {
         handleAuthError(error);
     }
@@ -515,4 +610,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Focus the first input when modal is shown
         document.getElementById('ticketTypeName').focus();
     });
+
+    // Load initial data
+    console.log('Loading initial data...');
+    loadBookings();
+    loadTicketTypes();
 });

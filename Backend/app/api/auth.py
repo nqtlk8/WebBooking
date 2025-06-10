@@ -40,12 +40,15 @@ def create_access_token(data: dict) -> str:
 
 async def verify_token(token: str = Depends(oauth2_scheme)) -> dict:
     try:
+        logger.info(f"Verifying token: {token[:20]}...")  # Log first 20 chars of token
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        logger.info(f"Token payload: {payload}")  # Log decoded payload
         return payload
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWT verification failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate "
+            detail="Could not validate token"
         )
 
 @router.post("/register", response_model=UserResponse)
@@ -166,4 +169,15 @@ async def read_users_me(token_data: dict = Depends(verify_token), db: Session = 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error: {str(e)}"
+        )
+
+@router.get("/verify")
+async def verify_token(token_data: dict = Depends(verify_token)):
+    try:
+        return {"valid": True, "user": token_data}
+    except Exception as e:
+        logger.error(f"Token verification error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
         )

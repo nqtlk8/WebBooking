@@ -36,10 +36,11 @@ app = FastAPI(
 # Thêm CORS middleware với cấu hình cho phép tất cả
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"],  # Cho phép cả localhost và 127.0.0.1
-    allow_credentials=True,  # Cho phép gửi credentials
-    allow_methods=["*"],  # Cho phép tất cả methods
-    allow_headers=["*"],  # Cho phép tất cả headers
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Add JWT Middleware with excluded paths
